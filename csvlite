@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+# Query a TSV/CSV file using sqlite
+
 use strict;
 use warnings;
 
@@ -122,8 +124,9 @@ if (@ARGV) {
   load_csv('-', 't1');
 }
 
-if ($sql_query !~ / from /i) {
-  $sql_query .= ' from t1';
+if ($sql_query !~ /^\s*select .* from .* where/i) {
+  $sql_query = "SELECT * FROM t1 WHERE $sql_query";
+  warn "added missing SELECT ... FROM ... WHERE to query string\n";
 }
 
 my $sth = $dbh->prepare($sql_query);
