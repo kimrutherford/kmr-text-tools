@@ -2,4 +2,4 @@
 
 # pretty print a TSV file
 
-csvlook -d "	" -H
+csvlook -d "	" -H "$@"
