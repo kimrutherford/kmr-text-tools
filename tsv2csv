@@ -1,7 +1,10 @@
 #!/usr/bin/env perl
 
+if (@ARGV && $ARGV[0] eq '-h') {
+  die "$0: Convert TSV input file to CSV\n";
+}
+
 use Text::CSV_XS;
-use IO;
 
 my $csv_in = Text::CSV_XS->new ({ sep_char => "\t" });
 my $csv_out = Text::CSV_XS->new ({ sep_char => ",", eol => "\n" });
