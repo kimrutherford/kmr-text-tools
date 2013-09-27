@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+
+use Text::CSV_XS;
+use IO;
+
+my $csv_in = Text::CSV_XS->new ({ sep_char => "\t" });
+my $csv_out = Text::CSV_XS->new ({ sep_char => ",", eol => "\n" });
+
+while (defined (my $line = <>)) {
+  $csv_in->parse($line);
+  my @parsed = $csv_in->fields();
+  $csv_out->print(\*STDOUT, \@parsed);
+}
+
+close $fh_in;
+close $fh_out;

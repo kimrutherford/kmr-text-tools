@@ -1,0 +1,147 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use IO::All;
+use Text::CSV_XS;
+use Getopt::Long qw(GetOptions);
+use File::Temp qw/ :POSIX /;
+
+use DBI;
+
+# if not set with option, use the delimiter of last input file - used for output
+# too
+my $delimiter = undef;
+
+if (!GetOptions('delim|d=s', \$delimiter)) {
+  usage();
+}
+
+$delimiter = "\t" if defined $delimiter && lc $delimiter eq 'tab';
+
+my $sql_query = shift;
+
+my $dbh = DBI->connect('dbi:SQLite:dbname=:memory:', '', '');
+
+my $some_input_has_header = 0;
+
+sub load_csv
+{
+  my $file_name = shift;
+  my $table_name = shift;
+
+  my $display_file_name;
+
+  if ($file_name eq '-') {
+    $display_file_name = 'STDIN';
+  } else {
+    $display_file_name = $file_name;
+  }
+
+  my $io = io($file_name);
+
+  my $first = $io->getline();
+
+  my $csv = Text::CSV_XS->new();
+
+  if (!defined $delimiter) {
+    my $tab_count = ()= $first =~ m/\t/g;
+    my $comma_count = ()= $first =~ m/,/g;
+
+    if ($comma_count > $tab_count) {
+      $delimiter = ",";
+    } else {
+      $delimiter = "\t";
+    }
+  }
+
+  my $display_delimiter;
+
+  if ($delimiter eq "\t") {
+    $display_delimiter = 'TAB';
+  } else {
+    $display_delimiter = qq("$delimiter");
+  }
+
+  warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n);
+  $csv->sep_char($delimiter);
+
+  my $letter_count = ()= $first =~ m/[a-z]/gi;
+  my $number_count = ()= $first =~ m/\d/g;
+
+  my @first_parsed = ();
+
+  if ($csv->parse($first)) {
+    @first_parsed = $csv->fields();
+  } else {
+    die "parse failure: ", $csv->error_input(), "\n";
+  }
+
+  my @headers;
+
+  if ($letter_count > $number_count) {
+    warn "assuming $display_file_name has header line\n";
+    @headers = @first_parsed;
+    $headers[0] =~ s/^#//;
+    map { s/[^a-zA-Z\d]+/_/g; } @headers;
+    @first_parsed = ();
+    $some_input_has_header = 1;
+  } else {
+    warn "assuming input from $display_file_name has no header line\n";
+    for (my $i = 1; $i <= @first_parsed; $i++) {
+      push @headers, "c$i";
+    }
+  }
+
+  my $columns_str = join (", ", map { "$_ text" } @headers);
+
+  my $create_table_sql = "CREATE table $table_name ($columns_str)";
+
+  my $sth = $dbh->prepare($create_table_sql);
+  $sth->execute();
+
+  my $add_row_sql = "insert into $table_name values (" .
+    join(",", map { "?" } @headers) . ")";
+  $sth = $dbh->prepare($add_row_sql);
+
+  if (@first_parsed) {
+    $sth->execute(@first_parsed);
+  }
+
+  while (defined (my $fields = $csv->getline($io))) {
+    $sth->execute(@$fields);
+  }
+}
+
+if (@ARGV) {
+  for (my $i = 0; $i < @ARGV; $i++) {
+    load_csv($ARGV[$i], 't' . ($i+1));
+  }
+} else {
+  load_csv('-', 't1');
+}
+
+if ($sql_query !~ / from /i) {
+  $sql_query .= ' from t1';
+}
+
+my $sth = $dbh->prepare($sql_query);
+$sth->execute();
+
+my $out_csv = Text::CSV_XS->new();
+$out_csv->sep_char($delimiter);
+
+if ($some_input_has_header) {
+  # use a header line for output if there was one for input
+  warn "using header line for output because an input file had a header line\n";
+  my @field_names = @{ $sth->{NAME} };
+
+  $out_csv->print(\*STDOUT, \@field_names);
+  print "\n";
+}
+
+while (my @data = $sth->fetchrow_array()) {
+  $out_csv->print(\*STDOUT, \@data);
+  print "\n";
+}

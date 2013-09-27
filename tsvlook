@@ -1,0 +1,3 @@
+#!/bin/sh -
+
+tsv2csv "$@" | csvlook -H
