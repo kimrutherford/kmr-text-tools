@@ -132,7 +132,7 @@ if ($sql_query !~ /^\s*select .* from .* where/i) {
 my $sth = $dbh->prepare($sql_query);
 $sth->execute();
 
-my $out_csv = Text::CSV_XS->new();
+my $out_csv = Text::CSV_XS->new({ eol => "\n" });
 $out_csv->sep_char($delimiter);
 
 if ($some_input_has_header) {
@@ -141,10 +141,8 @@ if ($some_input_has_header) {
   my @field_names = @{ $sth->{NAME} };
 
   $out_csv->print(\*STDOUT, \@field_names);
-  print "\n";
 }
 
 while (my @data = $sth->fetchrow_array()) {
   $out_csv->print(\*STDOUT, \@data);
-  print "\n";
 }
