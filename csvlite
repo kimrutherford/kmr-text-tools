@@ -17,10 +17,12 @@ use DBI;
 # if not set with option, use the delimiter of last input file - used for output
 # too
 my $delimiter = undef;
+my $out_delimiter = undef;
 
 my $quiet = 0;
 
 if (!GetOptions('delim|d=s', \$delimiter,
+                'out-delim=s', \$out_delimiter,
                 'quiet|q' => \$quiet)) {
   usage();
 }
@@ -84,6 +86,8 @@ sub load_csv
     } else {
       $delimiter = "\t";
     }
+
+    $out_delimiter = $delimiter unless defined $out_delimiter
   }
 
   my $display_delimiter;
@@ -196,7 +200,7 @@ my $sth = $dbh->prepare($sql_query);
 $sth->execute();
 
 my $out_csv = Text::CSV_XS->new({ eol => "\n" });
-$out_csv->sep_char($delimiter);
+$out_csv->sep_char($out_delimiter);
 
 if ($some_input_has_header) {
   # use a header line for output if there was one for input
