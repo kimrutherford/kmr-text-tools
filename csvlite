@@ -90,7 +90,8 @@ sub load_csv
     @first_parsed = ();
     $some_input_has_header = 1;
   } else {
-    warn "assuming input from $display_file_name has no header line\n";
+    warn "assuming input from $display_file_name has no header line, " .
+      "using 'c1', 'c2', ...\n";
     for (my $i = 1; $i <= @first_parsed; $i++) {
       push @headers, "c$i";
     }
