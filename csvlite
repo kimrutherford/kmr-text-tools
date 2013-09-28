@@ -10,6 +10,7 @@ use Text::CSV_XS;
 use Getopt::Long qw(GetOptions);
 use File::Temp qw/ :POSIX /;
 use String::Similarity;
+use File::Basename;
 
 use DBI;
 
@@ -45,6 +46,14 @@ if (defined $sql_query) {
 my $dbh = DBI->connect('dbi:SQLite:dbname=:memory:', '', '');
 
 my $some_input_has_header = 0;
+
+# make an identifier that's safe for use as an SQLite table or column name
+sub make_identifier
+{
+  my $identifier = shift;
+  $identifier =~ s/[^a-zA-Z\d]+/_/g;
+  return $identifier;
+}
 
 sub load_csv
 {
@@ -116,7 +125,7 @@ sub load_csv
     @headers = @first_parsed;
     $headers[0] =~ s/^#//;
     # make headers into good sql column names
-    map { s/[^a-zA-Z\d]+/_/g; } @headers;
+    map { $_ = make_identifier($_); } @headers;
     @first_parsed = ();
     $some_input_has_header = 1;
   } else {
