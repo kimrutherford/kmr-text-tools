@@ -17,7 +17,10 @@ use DBI;
 # too
 my $delimiter = undef;
 
-if (!GetOptions('delim|d=s', \$delimiter)) {
+my $quiet = 0;
+
+if (!GetOptions('delim|d=s', \$delimiter,
+                'quiet|q' => \$quiet)) {
   usage();
 }
 
@@ -68,7 +71,8 @@ sub load_csv
     $display_delimiter = qq("$delimiter");
   }
 
-  warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n);
+  warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n)
+    unless $quiet;
   $csv->sep_char($delimiter);
 
   my @first_parsed;
@@ -93,15 +97,17 @@ sub load_csv
     similarity(join ("\t", @first_parsed), join ("\t", @second_parsed));
 
   if (defined $second && $similarity < 0.5) {
-    warn "assuming $display_file_name has header line\n";
+    warn "assuming $display_file_name has header line\n"
+      unless $quiet;
     @headers = @first_parsed;
     $headers[0] =~ s/^#//;
+    # make headers into good sql column names
     map { s/[^a-zA-Z\d]+/_/g; } @headers;
     @first_parsed = ();
     $some_input_has_header = 1;
   } else {
     warn "assuming input from $display_file_name has no header line, " .
-      "using 'c1', 'c2', ...\n";
+      "using columns names like 'c1', 'c2', ...\n" unless $quiet;
     for (my $i = 1; $i <= @first_parsed; $i++) {
       push @headers, "c$i";
     }
@@ -145,7 +151,8 @@ if (@ARGV) {
 
 if ($sql_query !~ /^\s*select .* from .* where/i) {
   $sql_query = "SELECT * FROM t1 WHERE $sql_query";
-  warn "added missing SELECT ... FROM ... WHERE to query string\n";
+  warn "added missing SELECT ... FROM ... WHERE to query string\n"
+    unless $quiet;
 }
 
 my $sth = $dbh->prepare($sql_query);
@@ -156,7 +163,8 @@ $out_csv->sep_char($delimiter);
 
 if ($some_input_has_header) {
   # use a header line for output if there was one for input
-  warn "using header line for output because an input file had a header line\n";
+  warn "using header line for output because an input file had a header line\n"
+    unless $quiet;
   my @field_names = @{ $sth->{NAME} };
 
   $out_csv->print(\*STDOUT, \@field_names);
