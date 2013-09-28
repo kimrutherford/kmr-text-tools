@@ -9,6 +9,7 @@ use IO::All;
 use Text::CSV_XS;
 use Getopt::Long qw(GetOptions);
 use File::Temp qw/ :POSIX /;
+use String::Similarity;
 
 use DBI;
 
@@ -44,6 +45,7 @@ sub load_csv
   my $io = io($file_name);
 
   my $first = $io->getline();
+  my $second = $io->getline();
 
   my $csv = Text::CSV_XS->new();
 
@@ -69,10 +71,7 @@ sub load_csv
   warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n);
   $csv->sep_char($delimiter);
 
-  my $letter_count = ()= $first =~ m/[a-z]/gi;
-  my $number_count = ()= $first =~ m/\d/g;
-
-  my @first_parsed = ();
+  my @first_parsed;
 
   if ($csv->parse($first)) {
     @first_parsed = $csv->fields();
@@ -82,7 +81,18 @@ sub load_csv
 
   my @headers;
 
-  if ($letter_count > $number_count) {
+  my @second_parsed;
+
+  if ($csv->parse($second)) {
+    @second_parsed = $csv->fields();
+  } else {
+    die "parse failure: ", $csv->error_input(), "\n";
+  }
+
+  my $similarity =
+    similarity(join ("\t", @first_parsed), join ("\t", @second_parsed));
+
+  if (defined $second && $similarity < 0.5) {
     warn "assuming $display_file_name has header line\n";
     @headers = @first_parsed;
     $headers[0] =~ s/^#//;
@@ -112,8 +122,16 @@ sub load_csv
     $sth->execute(@first_parsed);
   }
 
-  while (defined (my $fields = $csv->getline($io))) {
-    $sth->execute(@$fields);
+  if ($second) {
+    if ($csv->parse($second)) {
+      $sth->execute($csv->fields());
+    } else {
+      die "parse failure: ", $csv->error_input(), "\n";
+    }
+
+    while (defined (my $fields = $csv->getline($io))) {
+      $sth->execute(@$fields);
+    }
   }
 }
 
