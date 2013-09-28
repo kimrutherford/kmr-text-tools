@@ -168,7 +168,7 @@ my @table_names = ();
 
 if (@ARGV) {
   for (my $i = 0; $i < @ARGV; $i++) {
-    my $table_name = 't' . ($i+1);
+    my $table_name = make_identifier(basename($ARGV[$i], '.csv', '.tsv'));
     push @table_names, $table_name;
     load_csv($ARGV[$i], $table_name);
   }
