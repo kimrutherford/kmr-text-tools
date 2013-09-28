@@ -28,6 +28,20 @@ $delimiter = "\t" if defined $delimiter && lc $delimiter eq 'tab';
 
 my $sql_query = shift;
 
+if (-e $sql_query) {
+  die "$0: $sql_query is a file, the first argument should be an SQL query\n";
+}
+
+if (defined $sql_query) {
+  $sql_query =~ s/^\s+//;
+  $sql_query =~ s/\s+$//;
+
+  if (length $sql_query == 0) {
+    # assume "select * from ..."
+    $sql_query = undef;
+  }
+}
+
 my $dbh = DBI->connect('dbi:SQLite:dbname=:memory:', '', '');
 
 my $some_input_has_header = 0;
@@ -141,18 +155,32 @@ sub load_csv
   }
 }
 
+my @table_names = ();
+
 if (@ARGV) {
   for (my $i = 0; $i < @ARGV; $i++) {
-    load_csv($ARGV[$i], 't' . ($i+1));
+    my $table_name = 't' . ($i+1);
+    push @table_names, $table_name;
+    load_csv($ARGV[$i], $table_name);
   }
 } else {
-  load_csv('-', 't1');
+  my $table_name = 't1';
+  push @table_names, $table_name;
+  load_csv('-', $table_name);
 }
 
-if ($sql_query !~ /^\s*select .* from .* where/i) {
-  $sql_query = "SELECT * FROM t1 WHERE $sql_query";
-  warn "added missing SELECT ... FROM ... WHERE to query string\n"
+my $all_tables_str = join ',', @table_names;
+
+if (!defined $sql_query) {
+  $sql_query = "SELECT * FROM $all_tables_str";
+} else {
+  my $select_from_re = qr/^\s*select .* from .*/i;
+
+  if ($sql_query !~ $select_from_re) {
+    $sql_query = "SELECT * FROM $all_tables_str WHERE $sql_query";
+    warn "added missing SELECT ... FROM ... WHERE to query string\n"
     unless $quiet;
+  }
 }
 
 my $sth = $dbh->prepare($sql_query);
