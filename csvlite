@@ -16,7 +16,10 @@ use DBI;
 
 sub usage
 {
-  die qq|usage: $0 [-d delim] [-q] [query_string [file [file ...]]]
+  die <<"EOF";
+usage: $0 [-d delim] [-q] [query_string [file [file ...]]]
+  OR
+usage: $0 [-d delim] [-q] --load-only [file [file ...]]
 
 summary:
  $0 loads the arguments (TSV or CSV files) into a database using one table per
@@ -25,11 +28,14 @@ summary:
  By default the database is an in-memory SQLite database
 
 options:
-  -d delim     set the input field delimiter; default: guess using first line
+  --delim|-d delim  set the input field delimiter; default: guess using the
+                    contents of first line
   --dsn|-D          pass an explicit DBI database connect string in the form:
                      'dbi:<driver_name>:<params>', eg. 'dbi:SQLite:temp.sqlite3'
-  -q           suppress all informational messages
-  --out-delim  set the output field delimiter; default: use the input delimiter
+  --load-only|-l    load the files (or STDIN) and exit, without running a query
+  --quiet|-q        suppress all informational messages
+  --out-delim       set the output field delimiter; default: use the input
+                    delimiter
 
 notes:
  - The query string should be valid SQL.
@@ -49,7 +55,7 @@ examples:
       Fred<tab>20
       ...
   - $0 'select score.name,scores.score
-|
+EOF
 }
 
 # if not set with option, use the delimiter of last input file - used for output
@@ -57,31 +63,36 @@ examples:
 my $delimiter = undef;
 my $out_delimiter = undef;
 my $dsn = 'dbi:SQLite:dbname=:memory:';
-
+my $load_only = 0;
 my $quiet = 0;
 
 if (!GetOptions('delim|d=s', \$delimiter,
                 'out-delim=s', \$out_delimiter,
                 'dsn|D=s', \$dsn,
+                'load-only|l', \$load_only,
                 'quiet|q' => \$quiet)) {
   usage();
 }
 
 $delimiter = "\t" if defined $delimiter && lc $delimiter eq 'tab';
 
-my $sql_query = shift;
+my $sql_query;
 
-if (-e $sql_query) {
-  die "$0: $sql_query is a file, the first argument should be an SQL query\n";
-}
+if (!$load_only) {
+  $sql_query = shift;
 
-if (defined $sql_query) {
-  $sql_query =~ s/^\s+//;
-  $sql_query =~ s/\s+$//;
+  if (defined $sql_query) {
+    if (-e $sql_query) {
+      die "$0: $sql_query is a file, the first argument should be an SQL query\n";
+    }
 
-  if (length $sql_query == 0) {
-    # assume "select * from ..."
-    $sql_query = undef;
+    $sql_query =~ s/^\s+//;
+    $sql_query =~ s/\s+$//;
+
+    if (length $sql_query == 0) {
+      # assume "select * from ..."
+      $sql_query = undef;
+    }
   }
 }
 
@@ -189,6 +200,9 @@ sub load_csv
   my $create_table_sql = "CREATE table $table_name ($columns_str)";
 
   my $sth = $dbh->prepare($create_table_sql);
+  if (!defined $sth) {
+    die "$0: couldn't create table $table_name: ", $dbh->errstr(), "\n";
+  }
   $sth->execute();
 
   my $add_row_sql = "insert into $table_name values (" .
@@ -225,6 +239,8 @@ if (@ARGV) {
   push @table_names, $table_name;
   load_csv('-', $table_name);
 }
+
+exit 0 if $load_only;
 
 my $all_tables_str = join ',', @table_names;
 
