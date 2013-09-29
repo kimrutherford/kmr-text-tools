@@ -52,7 +52,7 @@ my $some_input_has_header = 0;
 # make an identifier that's safe for use as an SQLite table or column name
 sub make_identifier
 {
-  my $identifier = shift;
+  my $identifier = lc shift;
   $identifier =~ s/[^a-zA-Z\d]+/_/g;
   return $identifier;
 }
