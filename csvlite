@@ -14,6 +14,36 @@ use File::Basename;
 
 use DBI;
 
+sub usage
+{
+  die qq|usage: $0 [-d delim] [-q] [query_string [file [file ...]]]
+
+options:
+  -d delim     set the input field delimiter; default: guess using first line
+  -q           suppress all informational messages
+  --out-delim  set the output field delimiter; default: use the input delimiter
+
+notes:
+ - The query string should be valid SQL.
+ - If no query string is passed, the query is assumed to be:
+     "SELECT * from <table1,table2>"
+ - If no files are given as arguments, standard input is read.
+ - Each file is read into a table whose name is the basename of the file name,
+   ie. if the filename is /home/kmr/test.csv the table name will be "test"
+ - The input delimiter guessing compares the number of commas and the number of
+   tabs in the first line.  The most common of the two is assumed to be the
+   delimiter.
+
+examples:
+  - $0 'select * from results where score > 10' scores.tsv
+    assuming scores.tsv is:
+      name<tab>score
+      Fred<tab>20
+      ...
+  - $0 'select score.name,scores.score
+|
+}
+
 # if not set with option, use the delimiter of last input file - used for output
 # too
 my $delimiter = undef;
