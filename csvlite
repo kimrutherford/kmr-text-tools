@@ -18,6 +18,12 @@ sub usage
 {
   die qq|usage: $0 [-d delim] [-q] [query_string [file [file ...]]]
 
+summary:
+ $0 loads the arguments (TSV or CSV files) into a database using one table per
+ file then executes the query_string as an SQL query.
+
+ By default the database is an in-memory SQLite database
+
 options:
   -d delim     set the input field delimiter; default: guess using first line
   -q           suppress all informational messages
