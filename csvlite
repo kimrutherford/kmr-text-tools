@@ -77,30 +77,34 @@ sub load_csv
 
   my $csv = Text::CSV_XS->new();
 
+  my $delimiter_to_use = undef;
+
   if (!defined $delimiter) {
     my $tab_count = ()= $first =~ m/\t/g;
     my $comma_count = ()= $first =~ m/,/g;
 
     if ($comma_count > $tab_count) {
-      $delimiter = ",";
+      $delimiter_to_use = ",";
     } else {
-      $delimiter = "\t";
+      $delimiter_to_use = "\t";
     }
 
-    $out_delimiter = $delimiter unless defined $out_delimiter
+    $out_delimiter = $delimiter_to_use unless defined $out_delimiter
+  } else {
+    $delimiter_to_use = $delimiter;
   }
 
   my $display_delimiter;
 
-  if ($delimiter eq "\t") {
+  if ($delimiter_to_use eq "\t") {
     $display_delimiter = 'TAB';
   } else {
-    $display_delimiter = qq("$delimiter");
+    $display_delimiter = qq("$delimiter_to_use");
   }
 
   warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n)
     unless $quiet;
-  $csv->sep_char($delimiter);
+  $csv->sep_char($delimiter_to_use);
 
   my @first_parsed;
 
@@ -155,7 +159,7 @@ sub load_csv
     $sth->execute(@first_parsed);
   }
 
-  if ($second) {
+  if (defined $second) {
     if ($csv->parse($second)) {
       $sth->execute($csv->fields());
     } else {
