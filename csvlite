@@ -201,6 +201,10 @@ if (!defined $sql_query) {
 }
 
 my $sth = $dbh->prepare($sql_query);
+if (!defined $sth) {
+  die "$0: preparing query failed: ", $dbh->errstr(), "\n";
+}
+
 $sth->execute();
 
 my $out_csv = Text::CSV_XS->new({ eol => "\n" });
