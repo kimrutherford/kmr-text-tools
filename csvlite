@@ -26,6 +26,8 @@ summary:
 
 options:
   -d delim     set the input field delimiter; default: guess using first line
+  --dsn|-D          pass an explicit DBI database connect string in the form:
+                     'dbi:<driver_name>:<params>', eg. 'dbi:SQLite:temp.sqlite3'
   -q           suppress all informational messages
   --out-delim  set the output field delimiter; default: use the input delimiter
 
@@ -54,11 +56,13 @@ examples:
 # too
 my $delimiter = undef;
 my $out_delimiter = undef;
+my $dsn = 'dbi:SQLite:dbname=:memory:';
 
 my $quiet = 0;
 
 if (!GetOptions('delim|d=s', \$delimiter,
                 'out-delim=s', \$out_delimiter,
+                'dsn|D=s', \$dsn,
                 'quiet|q' => \$quiet)) {
   usage();
 }
@@ -81,7 +85,7 @@ if (defined $sql_query) {
   }
 }
 
-my $dbh = DBI->connect('dbi:SQLite:dbname=:memory:', '', '');
+my $dbh = DBI->connect($dsn, '', '');
 
 my $some_input_has_header = 0;
 
