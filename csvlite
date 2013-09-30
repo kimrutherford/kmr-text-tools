@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
-# Query a TSV/CSV file using sqlite
+# Read one or more TSV/CSV files and then query them with SQLite:
+#  csvlite 'select name, age from my_data where age > 30' my_data.csv
 
 use strict;
 use warnings;
