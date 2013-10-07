@@ -35,7 +35,7 @@ options:
                      'dbi:<driver_name>:<params>', eg. 'dbi:SQLite:temp.sqlite3'
   --load-only|-l    load the files (or STDIN) and exit, without running a query
   --quiet|-q        suppress all informational messages
-  --out-delim       set the output field delimiter; default: use the input
+  --out-delim delim set the output field delimiter; default: use the input
                     delimiter
 
 notes:
