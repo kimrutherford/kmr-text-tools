@@ -105,7 +105,9 @@ my $some_input_has_header = 0;
 sub make_identifier
 {
   my $identifier = lc shift;
-  $identifier =~ s/[^a-zA-Z\d]+/_/g;
+  $identifier =~ s/^\s+//;
+  $identifier =~ s/\s+$//;
+  $identifier =~ s/[^a-zA-Z_\d]+/_/g;
   return $identifier;
 }
 
