@@ -143,7 +143,9 @@ sub load_csv
 
   my $delimiter_to_use = undef;
 
-  if (!defined $delimiter) {
+  if (defined $delimiter) {
+    $delimiter_to_use = $delimiter;
+  } else {
     my $tab_count = ()= $first =~ m/\t/g;
     my $comma_count = ()= $first =~ m/,/g;
 
@@ -154,8 +156,6 @@ sub load_csv
     }
 
     $out_delimiter = $delimiter_to_use unless defined $out_delimiter
-  } else {
-    $delimiter_to_use = $delimiter;
   }
 
   my $display_delimiter;
