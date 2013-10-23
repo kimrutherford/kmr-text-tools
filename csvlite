@@ -111,6 +111,13 @@ sub make_identifier
   return $identifier;
 }
 
+sub _clean_line
+{
+  my $line_ref = shift;
+
+  chomp $$line_ref;
+}
+
 sub load_csv
 {
   my $file_name = shift;
@@ -127,7 +134,10 @@ sub load_csv
   my $io = io($file_name);
 
   my $first = $io->getline();
+  _clean_line(\$first);
+
   my $second = $io->getline();
+  _clean_line(\$second);
 
   my $csv = Text::CSV_XS->new();
 
@@ -223,8 +233,13 @@ sub load_csv
       die "parse failure: ", $csv->error_input(), "\n";
     }
 
-    while (defined (my $fields = $csv->getline($io))) {
-      $sth->execute(@$fields);
+    while (defined (my $line = $io->getline())) {
+      _clean_line(\$line);
+      if ($csv->parse($line)) {
+        $sth->execute($csv->fields());
+      } else {
+        warn "failed to parse line: $line - skipping\n";
+      }
     }
   }
 }
