@@ -175,7 +175,7 @@ sub load_csv
   if ($csv->parse($first)) {
     @first_parsed = $csv->fields();
   } else {
-    die "parse failure: ", $csv->error_input(), "\n";
+    die "parse failure for line ", qq("$first":\n), $csv->error_input(), "\n";
   }
 
   my @headers;
