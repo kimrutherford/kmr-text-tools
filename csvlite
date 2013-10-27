@@ -30,7 +30,9 @@ summary:
 
 options:
   --delim|-d delim  set the input field delimiter; default: guess using the
-                    contents of first line
+                    contents of first line; as a special case "tab" or "TAB"
+                    as the <delim> in the command line will be translation to
+                    a real tab character
   --dsn|-D          pass an explicit DBI database connect string in the form:
                      'dbi:<driver_name>:<params>', eg. 'dbi:SQLite:temp.sqlite3'
   --load-only|-l    load the files (or STDIN) and exit, without running a query
