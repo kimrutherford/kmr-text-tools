@@ -239,7 +239,11 @@ sub load_csv
     while (defined (my $line = $io->getline())) {
       _clean_line(\$line);
       if ($csv->parse($line)) {
-        $sth->execute($csv->fields());
+        my @fields = $csv->fields();
+        if (scalar(@fields) != scalar(@headers)) {
+          die "not enough fields in line $.: $line\nb";
+        }
+        $sth->execute();
       } else {
         warn "failed to parse line: $line - skipping\n";
       }
