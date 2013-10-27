@@ -157,19 +157,20 @@ sub load_csv
       $delimiter_to_use = "\t";
     }
 
-    $out_delimiter = $delimiter_to_use unless defined $out_delimiter
+    $out_delimiter = $delimiter_to_use unless defined $out_delimiter;
+
+    my $display_delimiter;
+
+    if ($delimiter_to_use eq "\t") {
+      $display_delimiter = 'TAB';
+    } else {
+      $display_delimiter = qq("$delimiter_to_use");
+    }
+
+    warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n)
+      unless $quiet;
   }
 
-  my $display_delimiter;
-
-  if ($delimiter_to_use eq "\t") {
-    $display_delimiter = 'TAB';
-  } else {
-    $display_delimiter = qq("$delimiter_to_use");
-  }
-
-  warn qq(assuming $display_delimiter as the delimiter for $display_file_name\n)
-    unless $quiet;
   $csv->sep_char($delimiter_to_use);
 
   my @first_parsed;
