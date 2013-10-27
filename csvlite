@@ -5,6 +5,7 @@
 
 use strict;
 use warnings;
+use Carp;
 
 use IO::All;
 use Text::CSV_XS;
@@ -241,7 +242,7 @@ sub load_csv
       if ($csv->parse($line)) {
         my @fields = $csv->fields();
         if (scalar(@fields) != scalar(@headers)) {
-          die "not enough fields in line $.: $line\nb";
+          die "not enough fields in line $. of $display_file_name: $line\n";
         }
         $sth->execute();
       } else {
