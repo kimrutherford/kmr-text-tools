@@ -142,7 +142,7 @@ sub load_csv
   my $second = $io->getline();
   _clean_line(\$second);
 
-  my $csv = Text::CSV_XS->new();
+  my $csv = Text::CSV_XS->new({ binary => 1 });
 
   my $delimiter_to_use = undef;
 
