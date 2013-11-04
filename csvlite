@@ -212,7 +212,7 @@ sub load_csv
     }
   }
 
-  my $columns_str = join (", ", map { "$_ text" } @headers);
+  my $columns_str = join (", ", map { qq("$_" text) } @headers);
 
   my $create_table_sql = "CREATE table $table_name ($columns_str)";
 
