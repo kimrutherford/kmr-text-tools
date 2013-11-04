@@ -19,9 +19,9 @@ use DBI;
 sub usage
 {
   die <<"EOF";
-usage: $0 [-d delim] [-q] [query_string [file [file ...]]]
+usage: $0 [-d delim] [-q] [-D dsn] [query_string [file [file ...]]]
   OR
-usage: $0 [-d delim] [-q] --load-only [file [file ...]]
+usage: $0 [-d delim] [-q] [-D dsn] --load-only [file [file ...]]
 
 summary:
  $0 loads the arguments (TSV or CSV files) into a database using one table per
@@ -30,16 +30,19 @@ summary:
  By default the database is an in-memory SQLite database
 
 options:
-  --delim|-d delim  set the input field delimiter; default: guess using the
-                    contents of first line; as a special case "tab" or "TAB"
-                    as the <delim> in the command line will be translation to
-                    a real tab character
-  --dsn|-D          pass an explicit DBI database connect string in the form:
+  --delim|-d delim   Set the input field delimiter; default: guess using the
+                     contents of first line; as a special case "tab" or "TAB"
+                     as the <delim> in the command line will be translation to
+                     a real tab character
+  --dsn|-D dsn|path  Pass an explicit DBI database connect string in the form:
                      'dbi:<driver_name>:<params>', eg. 'dbi:SQLite:temp.sqlite3'
-  --load-only|-l    load the files (or STDIN) and exit, without running a query
-  --quiet|-q        suppress all informational messages
-  --out-delim delim set the output field delimiter; default: use the input
-                    delimiter
+                      - alternatively, if the argument doesn't look like a Perl
+                        DSN, assume it's the path to an SQLite database
+                        eg. '/tmp/db.sqlite3'
+  --load-only|-l     Load the files (or STDIN) and exit, without running a query
+  --quiet|-q         Suppress all informational messages
+  --out-delim delim  Set the output field delimiter; default: use the input
+                     delimiter
 
 notes:
  - The query string should be valid SQL.
@@ -66,7 +69,7 @@ EOF
 # too
 my $delimiter = undef;
 my $out_delimiter = undef;
-my $dsn = 'dbi:SQLite:dbname=:memory:';
+my $dsn = undef;
 my $load_only = 0;
 my $quiet = 0;
 
@@ -76,6 +79,14 @@ if (!GetOptions('delim|d=s', \$delimiter,
                 'load-only|l', \$load_only,
                 'quiet|q' => \$quiet)) {
   usage();
+}
+
+if (!defined $dsn) {
+  $dsn = 'dbi:SQLite:dbname=:memory:';
+}
+
+if ($dsn !~ /^dbi:/i) {
+  $dsn = "dbi:SQLite:dbname=$dsn";
 }
 
 $delimiter = "\t" if defined $delimiter && lc $delimiter eq 'tab';
@@ -214,7 +225,9 @@ sub load_csv
 
   my $columns_str = join (", ", map { qq("$_" text) } @headers);
 
-  my $create_table_sql = "CREATE table $table_name ($columns_str)";
+  my $temporary_table_str = "TEMPORARY ";
+
+  my $create_table_sql = "CREATE ${temporary_table_str}table $table_name ($columns_str)";
 
   my $sth = $dbh->prepare($create_table_sql);
   if (!defined $sth) {
