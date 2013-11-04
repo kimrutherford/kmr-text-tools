@@ -244,7 +244,7 @@ sub load_csv
         if (scalar(@fields) != scalar(@headers)) {
           die "not enough fields in line $. of $display_file_name: $line\n";
         }
-        $sth->execute();
+        $sth->execute(@fields);
       } else {
         warn "failed to parse line: $line - skipping\n";
       }
