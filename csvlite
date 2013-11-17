@@ -198,6 +198,10 @@ sub load_csv
   if ($file_name eq '-') {
     $display_file_name = 'STDIN';
   } else {
+    if (! -e $file_name) {
+      die qq("$file_name" doesn't exists\n);
+    }
+
     $display_file_name = $file_name;
   }
 
