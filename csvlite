@@ -16,6 +16,8 @@ use File::Basename;
 
 use DBI;
 
+my $metadata_table_name = "csvlite_metadata";
+
 sub usage
 {
   die <<"EOF";
@@ -39,10 +41,23 @@ options:
                       - alternatively, if the argument doesn't look like a Perl
                         DSN, assume it's the path to an SQLite database
                         eg. '/tmp/db.sqlite3'
+                      - if the SQLite database file doesn't exist it will be
+                        created, used, then deleted (but see --persist)
+                      - if the database exists it will be used but tables
+                        created for processing will be dropped after use
+                        unless --persist is passed
   --load-only|-l     Load the files (or STDIN) and exit, without running a query
   --quiet|-q         Suppress all informational messages
   --out-delim delim  Set the output field delimiter; default: use the input
                      delimiter
+  --persist|-p       If set, temporary tables and temporary SQLite databases
+                     won't be dropped after use.  Additionally an extra table
+                     ("$metadata_table_name") will be created.  This table will
+                     be used to store the filename, modification date and size
+                     of CSV/TSV files.  If the date or size changes the table
+                     will be reloaded.  In this mode if there is no -D option,
+                     a database called .csvlite_db will be created in the
+                     current directory.
 
 notes:
  - The query string should be valid SQL.
@@ -70,19 +85,32 @@ EOF
 my $delimiter = undef;
 my $out_delimiter = undef;
 my $dsn = undef;
+my $persist = 0;
 my $load_only = 0;
 my $quiet = 0;
 
 if (!GetOptions('delim|d=s', \$delimiter,
                 'out-delim=s', \$out_delimiter,
                 'dsn|D=s', \$dsn,
+                'persist|p', \$persist,
                 'load-only|l', \$load_only,
                 'quiet|q' => \$quiet)) {
   usage();
 }
 
 if (!defined $dsn) {
-  $dsn = 'dbi:SQLite:dbname=:memory:';
+  if ($persist) {
+    my $default_persist_db = '.csvlite_db';
+
+    if (! -w ".") {
+      die qq:can't use default --persist db ("./$default_persist_db") - : .
+        "directory not writable\n";
+    }
+
+    $dsn = 'dbi:SQLite:dbname=:memory:';
+  } else {
+    $dsn = 'dbi:SQLite:dbname=:memory:';
+  }
 }
 
 if ($dsn !~ /^dbi:/i) {
@@ -112,6 +140,34 @@ if (!$load_only) {
 }
 
 my $dbh = DBI->connect($dsn, '', '');
+
+my %table_info = ();
+
+my $metadata = ();
+
+if ($persist) {
+  my $info_sth = $dbh->table_info('%', 'main', $metadata_table_name, 'TABLE');
+
+  if ($info_sth->fetch()) {
+    # metadata table exists
+    my $query =
+      "SELECT table_name, file_name, mod_time, file_size FROM $metadata_table_name;";
+
+    my $sth = $dbh->prepare($query);
+    $sth->execute();
+    while (my $data = $sth->fetchrow_hashref()) {
+      $table_info{$data->{file_name}} = {
+        table_name => $data->{table_name},
+        mod_time => $data->{mod_time},
+        file_size => $data->{file_size},
+      };
+    }
+  } else {
+    my $create_sql =
+      "CREATE TABLE $metadata_table_name(table_name text, file_name text, mod_time integer, file_size integer)";
+    $dbh->prepare($create_sql)->execute();
+  }
+}
 
 my $some_input_has_header = 0;
 
@@ -227,17 +283,53 @@ sub load_csv
 
   my $temporary_table_str = "TEMPORARY ";
 
-  my $create_table_sql = "CREATE ${temporary_table_str}table $table_name ($columns_str)";
-
-  my $sth = $dbh->prepare($create_table_sql);
-  if (!defined $sth) {
-    die "$0: couldn't create table $table_name: ", $dbh->errstr(), "\n";
+  if ($persist) {
+    $temporary_table_str = "";
   }
-  $sth->execute();
+
+  my $create_table = 1;
+
+  if ($persist && exists $table_info{$file_name}) {
+    my %info = %{$table_info{$file_name}};
+
+    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$file_size,
+        $atime,$file_mod_time,$ctime,$blksize,$blocks)
+      = stat($file_name);
+
+    if ($info{mod_time} eq $file_mod_time &&
+        $info{file_size} eq $file_size) {
+      return;
+    } else {
+      $create_table = 0;
+      my $truncate_table_sql = "DELETE FROM $table_name";
+      $dbh->prepare($truncate_table_sql)->execute();
+
+      my $delete_metadata_row_sql =
+        "DELETE FROM $metadata_table_name WHERE file_name = ?";
+
+      $dbh->prepare($delete_metadata_row_sql)->execute($file_name);
+    }
+
+    my $metadata_insert_sql =
+      "INSERT INTO $metadata_table_name(file_name, table_name, mod_time, file_size) " .
+        "VALUES (?, ?, ?, ?)";
+    my $sth = $dbh->prepare($metadata_insert_sql);
+    $sth->execute($file_name, $table_name, $file_mod_time, $file_size);
+  }
+
+  if ($create_table) {
+    my $create_table_sql = "CREATE ${temporary_table_str}table $table_name ($columns_str)";
+
+    my $sth = $dbh->prepare($create_table_sql);
+    if (!defined $sth) {
+      die "$0: couldn't create table $table_name: ", $dbh->errstr(), "\n";
+    }
+    $sth->execute();
+  }
 
   my $add_row_sql = "insert into $table_name values (" .
     join(",", map { "?" } @headers) . ")";
-  $sth = $dbh->prepare($add_row_sql);
+  my $sth = $dbh->prepare($add_row_sql);
 
   if (@first_parsed) {
     $sth->execute(@first_parsed);
