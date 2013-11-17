@@ -107,7 +107,7 @@ if (!defined $dsn) {
         "directory not writable\n";
     }
 
-    $dsn = 'dbi:SQLite:dbname=:memory:';
+    $dsn = "dbi:SQLite:dbname=$default_persist_db";
   } else {
     $dsn = 'dbi:SQLite:dbname=:memory:';
   }
