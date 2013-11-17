@@ -291,22 +291,22 @@ sub load_csv
     $temporary_table_str = "";
   }
 
-  my $create_table = 1;
-
-  if ($persist && exists $table_info{$file_name}) {
-    my %info = %{$table_info{$file_name}};
+  if ($persist) {
+    my $info = $table_info{$file_name};
 
     my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$file_size,
         $atime,$file_mod_time,$ctime,$blksize,$blocks)
       = stat($file_name);
 
-    if ($info{mod_time} eq $file_mod_time &&
-        $info{file_size} eq $file_size) {
-      return;
-    } else {
-      $create_table = 0;
-      my $truncate_table_sql = "DELETE FROM $table_name";
-      $dbh->prepare($truncate_table_sql)->execute();
+
+    if (defined $info) {
+      if ($info->{mod_time} eq $file_mod_time &&
+          $info->{file_size} eq $file_size) {
+        return;
+      }
+
+      my $delete_table_sql = "DROP TABLE $table_name";
+      $dbh->prepare($delete_table_sql)->execute();
 
       my $delete_metadata_row_sql =
         "DELETE FROM $metadata_table_name WHERE file_name = ?";
@@ -319,21 +319,23 @@ sub load_csv
         "VALUES (?, ?, ?, ?)";
     my $sth = $dbh->prepare($metadata_insert_sql);
     $sth->execute($file_name, $table_name, $file_mod_time, $file_size);
+
+    warn "reloading $file_name into $table_name\n" unless $quiet;
+  } else {
+    warn "loading $file_name into $table_name\n" unless $quiet;
   }
 
-  if ($create_table) {
-    my $create_table_sql = "CREATE ${temporary_table_str}table $table_name ($columns_str)";
+  my $create_table_sql = "CREATE ${temporary_table_str}table $table_name ($columns_str)";
 
-    my $sth = $dbh->prepare($create_table_sql);
-    if (!defined $sth) {
-      die "$0: couldn't create table $table_name: ", $dbh->errstr(), "\n";
-    }
-    $sth->execute();
+  my $sth = $dbh->prepare($create_table_sql);
+  if (!defined $sth) {
+    die "$0: couldn't create table $table_name: ", $dbh->errstr(), "\n";
   }
+  $sth->execute();
 
   my $add_row_sql = "insert into $table_name values (" .
     join(",", map { "?" } @headers) . ")";
-  my $sth = $dbh->prepare($add_row_sql);
+  $sth = $dbh->prepare($add_row_sql);
 
   if (@first_parsed) {
     $sth->execute(@first_parsed);
