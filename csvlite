@@ -340,6 +340,8 @@ sub load_csv
   $dbh->begin_work();
 
   eval {
+    local $dbh->{RaiseError} = 1;
+
     if (@first_parsed) {
       $sth->execute(@first_parsed);
     }
