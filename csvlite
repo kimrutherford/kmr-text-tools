@@ -337,29 +337,39 @@ sub load_csv
     join(",", map { "?" } @headers) . ")";
   $sth = $dbh->prepare($add_row_sql);
 
-  if (@first_parsed) {
-    $sth->execute(@first_parsed);
-  }
+  $dbh->begin_work();
 
-  if (defined $second) {
-    if ($csv->parse($second)) {
-      $sth->execute($csv->fields());
-    } else {
-      die "parse failure: ", $csv->error_input(), "\n";
+  eval {
+    if (@first_parsed) {
+      $sth->execute(@first_parsed);
     }
 
-    while (defined (my $line = $io->getline())) {
-      _clean_line(\$line);
-      if ($csv->parse($line)) {
-        my @fields = $csv->fields();
-        if (scalar(@fields) != scalar(@headers)) {
-          die "not enough fields in line $. of $display_file_name: $line\n";
-        }
-        $sth->execute(@fields);
+    if (defined $second) {
+      if ($csv->parse($second)) {
+        $sth->execute($csv->fields());
       } else {
-        warn "failed to parse line: $line - skipping\n";
+        die "parse failure: ", $csv->error_input(), "\n";
+      }
+
+      while (defined (my $line = $io->getline())) {
+        _clean_line(\$line);
+        if ($csv->parse($line)) {
+          my @fields = $csv->fields();
+          if (scalar(@fields) != scalar(@headers)) {
+            die "not enough fields in line $. of $display_file_name: $line\n";
+          }
+          $sth->execute(@fields);
+        } else {
+          warn "failed to parse line: $line - skipping\n";
+        }
       }
     }
+  };
+  if($@) {
+     $sth->finish();  # needed for SQLite
+     $dbh->rollback();
+  } else {
+     $dbh->commit();
   }
 }
 
@@ -386,7 +396,7 @@ if (!defined $sql_query) {
 } else {
   my $select_from_re = qr/^\s*select .* from .*/i;
 
-  if ($sql_query !~ $select_from_re) {
+  if ($sql_query !~ /^\s*\./ && $sql_query !~ $select_from_re) {
     $sql_query = "SELECT * FROM $all_tables_str WHERE $sql_query";
     warn "added missing SELECT ... FROM ... WHERE to query string\n"
     unless $quiet;
