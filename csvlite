@@ -199,7 +199,7 @@ sub load_csv
     $display_file_name = 'STDIN';
   } else {
     if (! -e $file_name) {
-      die qq("$file_name" doesn't exists\n);
+      die qq("$file_name" doesn't exist\n);
     }
 
     $display_file_name = $file_name;
