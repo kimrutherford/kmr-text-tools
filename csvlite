@@ -76,7 +76,10 @@ examples:
       name<tab>score
       Fred<tab>20
       ...
-  - $0 'select score.name,scores.score
+  - $0 'select p.*, d.* from p join dept d on p.department_id = d.id' \
+      t/data/people.tsv AS p t/data/department-details.csv AS dept
+    (using the data from the test directory)
+
 EOF
 }
 
@@ -379,9 +382,19 @@ my @table_names = ();
 
 if (@ARGV) {
   for (my $i = 0; $i < @ARGV; $i++) {
-    my $table_name = make_identifier(basename($ARGV[$i], '.csv', '.tsv'));
+    my $file_name = $ARGV[$i];
+
+    my $table_name;
+
+    if ($i + 2 < @ARGV && $ARGV[$i+1] eq 'AS') {
+      $table_name = $ARGV[$i+2];
+      $i += 2;
+    } else {
+      $table_name = make_identifier(basename($ARGV[$i], '.csv', '.tsv'));
+    }
+
     push @table_names, $table_name;
-    load_csv($ARGV[$i], $table_name);
+    load_csv($file_name, $table_name);
   }
 } else {
   my $table_name = 't1';
